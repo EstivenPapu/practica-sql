@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Práctica SQL: cuestionario con nota</title>
+<link rel="stylesheet" href="stile.css">
+</head>
+<body>
+<main>
+<h1>Práctica SQL</h1>
+<p class="sub">Cuestionario con nota de 0.0 a 5.0</p>
+
+<section id="intro">
+  <div class="card">
+    <h2>Antes de empezar</h2>
+    <p><b id="n1">20</b> preguntas. Cada respuesta correcta vale <b id="v1">0.25</b> (5 ÷ <span id="n2">20</span>), y la nota es la suma de lo que acertes.</p>
+    <p><b>Lee con calma.</b> Varias preguntas tienen trampa: un <code>NOT</code>, un <code>&gt;</code> en vez de <code>&gt;=</code>, un paréntesis que falta, un <code>= NULL</code>. Responder rápido es la forma más fácil de fallar.</p>
+    <p class="muted">Para las preguntas que cuentan filas, usa la tabla <code>empleados</code> (está siempre visible arriba de cada pregunta). Las preguntas salen en orden aleatorio.</p>
+    <button class="btn" id="go">Empezar</button>
+  </div>
+  <details>
+    <summary>Repaso rápido: tipos de sentencias SQL</summary>
+    <ul>
+      <li><b>DDL</b> (estructura): <code>CREATE</code>, <code>ALTER</code>, <code>DROP</code>, <code>TRUNCATE</code>.</li>
+      <li><b>DML</b> (datos): <code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>.</li>
+      <li><b>DQL</b> (consultar): <code>SELECT</code>. Algunos textos lo incluyen dentro de DML.</li>
+      <li><b>DCL</b> (permisos): <code>GRANT</code>, <code>REVOKE</code>.</li>
+      <li><b>TCL</b> (transacciones): <code>COMMIT</code>, <code>ROLLBACK</code>, <code>SAVEPOINT</code>.</li>
+    </ul>
+    <p class="muted">Reglas útiles: <code>AND</code> se evalúa antes que <code>OR</code>; <code>BETWEEN</code> incluye los extremos; <code>%</code> son varias letras y <code>_</code> es exactamente una; con NULL se usa <code>IS NULL</code> y <code>COALESCE</code>.</p>
+  </details>
+</section>
+
+<section id="quiz" hidden>
+  <div class="muted" id="prog"></div>
+  <div class="bar"><i id="barfill"></i></div>
+  <details>
+    <summary>Ver tabla empleados</summary>
+    <div class="scroll"><table>
+      <tr><th>id</th><th>nombre</th><th>apellido</th><th>departamento</th><th>salario</th><th>fecha_ingreso</th><th>comision</th></tr>
+      <tr><td>1</td><td>Ana</td><td>García</td><td>Ventas</td><td>3500000</td><td>2019-03-15</td><td>500000</td></tr>
+      <tr><td>2</td><td>Carlos</td><td>Pérez</td><td>TI</td><td>5200000</td><td>2018-07-01</td><td>NULL</td></tr>
+      <tr><td>3</td><td>Lucía</td><td>Martínez</td><td>Ventas</td><td>3100000</td><td>2021-01-10</td><td>300000</td></tr>
+      <tr><td>4</td><td>Jorge</td><td>Rodríguez</td><td>Recursos Humanos</td><td>2800000</td><td>2020-11-23</td><td>NULL</td></tr>
+      <tr><td>5</td><td>Sofía</td><td>López</td><td>TI</td><td>4800000</td><td>2017-05-02</td><td>NULL</td></tr>
+      <tr><td>6</td><td>Andrés</td><td>Gómez</td><td>Ventas</td><td>2950000</td><td>2022-08-19</td><td>200000</td></tr>
+      <tr><td>7</td><td>Valentina</td><td>Ramírez</td><td>Finanzas</td><td>4300000</td><td>2016-02-28</td><td>NULL</td></tr>
+      <tr><td>8</td><td>Mateo</td><td>Torres</td><td>TI</td><td>3900000</td><td>2023-04-04</td><td>NULL</td></tr>
+      <tr><td>9</td><td>Camila</td><td>Díaz</td><td>Finanzas</td><td>4100000</td><td>2021-09-13</td><td>NULL</td></tr>
+      <tr><td>10</td><td>Diego</td><td>Herrera</td><td>Recursos Humanos</td><td>3200000</td><td>2019-12-01</td><td>NULL</td></tr>
+      <tr><td>11</td><td>Ana</td><td>Castro</td><td>Ventas</td><td>3500000</td><td>2020-06-08</td><td>450000</td></tr>
+    </table></div>
+  </details>
+  <div class="card" id="qcard">
+    <span class="tag" id="qtag"></span>
+    <div id="qtext"></div>
+    <pre id="qcode" hidden></pre>
+    <div id="opts"></div>
+    <div class="fb" id="fb" hidden></div>
+    <button class="btn" id="next" hidden>Siguiente</button>
+  </div>
+</section>
+
+<section id="result" hidden>
+  <div class="card">
+    <h2>Tu nota</h2>
+    <div class="nota" id="nota"></div>
+    <p id="resum"></p>
+    <p class="muted">Nota = respuestas correctas × (5 ÷ total de preguntas). Como referencia, 3.0 suele ser la nota mínima para aprobar, pero confirma el criterio con tu docente.</p>
+    <button class="btn" id="again">Intentar de nuevo</button>
+  </div>
+  <div class="card" id="review"></div>
+</section>
+
+<footer>Material de práctica hecho por un compañero con base en los apuntes y talleres vistos en clase. No reemplaza los apuntes del docente. Algunas respuestas pueden variar según el motor (SQL Server o PostgreSQL); las que dependen del motor lo indican.</footer>
+</main>
+
+<script>
+const Q=[
+{c:`DDL, DML, DCL, TCL`,q:`Lee bien: ¿cuál de estas sentencias NO es DDL?`,o:[`UPDATE`,`CREATE`,`ALTER`,`DROP`],e:`UPDATE modifica datos, así que es DML. CREATE, ALTER y DROP definen o cambian la estructura (DDL). Ojo con el “NO” de la pregunta.`},
+{c:`DDL`,q:`La tabla empleados YA existe y ya tiene datos. Necesitas agregarle una columna nueva llamada telefono sin perder nada. ¿Cuál es la sentencia correcta?`,o:[`ALTER TABLE empleados ADD telefono VARCHAR(20);`,`CREATE TABLE empleados (telefono VARCHAR(20));`,`UPDATE empleados SET telefono = '3001234567';`,`INSERT INTO empleados (telefono) VALUES ('3001234567');`],e:`ALTER TABLE (DDL) cambia la estructura de una tabla existente. CREATE TABLE falla porque la tabla ya existe. UPDATE e INSERT (DML) manejan datos y no pueden usar una columna que todavía no existe.`},
+{c:`DML`,q:`Ejecutas esta sentencia sin WHERE. ¿Qué pasa?`,code:`DELETE FROM empleados;`,o:[`Se borran todas las filas, pero la tabla sigue existiendo`,`Se elimina la tabla completa`,`Da error porque falta el WHERE`,`Solo se borra la primera fila`],e:`DELETE es DML: sin WHERE afecta todas las filas, pero la estructura de la tabla queda. Quien elimina la tabla es DROP TABLE (DDL).`},
+{c:`DML`,q:`Querías subirle el salario SOLO a Ana Castro, pero olvidaste el WHERE. ¿Qué pasa?`,code:`UPDATE empleados SET salario = 4000000;`,o:[`Se actualizan las 11 filas`,`Solo se actualiza Ana Castro`,`Se actualizan las dos Ana`,`Da error de sintaxis`],e:`Sin WHERE, UPDATE modifica todas las filas de la tabla. Por eso se revisa el WHERE antes de ejecutar y, si te equivocas dentro de una transacción abierta, se usa ROLLBACK.`},
+{c:`DCL`,q:`¿Cuál sentencia se usa para QUITARLE un permiso a un usuario?`,o:[`REVOKE`,`GRANT`,`COMMIT`,`DELETE`],e:`GRANT y REVOKE son DCL: GRANT da permisos y REVOKE los quita. COMMIT es TCL y DELETE es DML.`},
+{c:`TCL`,q:`Hiciste un UPDATE equivocado dentro de una transacción y todavía NO la has confirmado. ¿Qué comando deshace los cambios?`,o:[`ROLLBACK`,`COMMIT`,`REVOKE`,`DROP`],e:`ROLLBACK (TCL) deshace los cambios de la transacción abierta. COMMIT los confirma de forma definitiva.`},
+{c:`Consultas`,q:`¿Cuántas filas devuelve? (usa la tabla de referencia)`,code:`SELECT * FROM empleados\nWHERE departamento = 'TI'\n  AND salario NOT BETWEEN 4000000 AND 5000000;`,o:[`2`,`1`,`3`,`0`],e:`TI tiene 3 empleados: Carlos (5.200.000), Sofía (4.800.000) y Mateo (3.900.000). Sofía está dentro del rango, así que se excluye. Quedan Carlos y Mateo.`},
+{c:`Consultas y NULL`,q:`¿Qué devuelve esta consulta?`,code:`SELECT COUNT(comision) FROM empleados;`,o:[`4`,`11`,`7`,`0`],e:`COUNT(columna) ignora los NULL y solo cuenta las comisiones con valor (Ana García, Lucía, Andrés y Ana Castro). COUNT(*) sí daría 11.`},
+{c:`Consultas: AND y OR`,q:`¿Cuántas filas devuelve?`,code:`SELECT * FROM empleados\nWHERE departamento = 'TI'\n   OR departamento = 'Finanzas'\n  AND salario > 4500000;`,o:[`3`,`2`,`5`,`7`],e:`El AND se evalúa antes que el OR: se lee como “TI, o (Finanzas con salario > 4.500.000)”. Entran los 3 de TI y ninguno de Finanzas (4.300.000 y 4.100.000). Con paréntesis alrededor del OR habrían sido 2.`},
+{c:`Consultas: LIKE`,q:`¿Cuántas filas devuelve?`,code:`SELECT nombre FROM empleados\nWHERE nombre LIKE '%a';`,o:[`6`,`4`,`5`,`7`],e:`Terminan en a: Ana, Lucía, Sofía, Valentina, Camila y la otra Ana. Son 6 filas, porque Ana aparece dos veces.`},
+{c:`Consultas: LIKE`,q:`¿Cuántas filas devuelve?`,code:`SELECT nombre FROM empleados\nWHERE nombre LIKE '_n%';`,o:[`3`,`2`,`1`,`5`],e:`El guion bajo es exactamente una letra, así que la n debe ser la segunda letra: Ana, Andrés y Ana (Castro). No es “empieza con n” ni “contiene n”.`},
+{c:`Consultas: BETWEEN`,q:`¿Cuántas filas devuelve?`,code:`SELECT * FROM empleados\nWHERE fecha_ingreso BETWEEN '2019-03-15' AND '2020-06-08';`,o:[`3`,`2`,`1`,`4`],e:`BETWEEN incluye los extremos: entran Ana García (2019-03-15) y Ana Castro (2020-06-08) justo en los bordes, más Diego (2019-12-01). Jorge (2020-11-23) queda fuera.`},
+{c:`Consultas: comparaciones`,q:`¿Cuántas filas devuelve?`,code:`SELECT * FROM empleados\nWHERE salario > 3500000;`,o:[`5`,`7`,`6`,`4`],e:`Con > no entra el salario exacto de 3.500.000 (Ana García y Ana Castro). Entran Carlos, Sofía, Valentina, Mateo y Camila: 5. Con >= serían 7.`},
+{c:`Consultas: GROUP BY`,q:`¿Cuántas filas (grupos) devuelve?`,code:`SELECT departamento, COUNT(*)\nFROM empleados\nWHERE salario >= 3500000\nGROUP BY departamento;`,o:[`3`,`4`,`7`,`2`],e:`Primero el WHERE deja 7 empleados y luego se agrupa: Ventas (2), TI (3) y Finanzas (2). Recursos Humanos desaparece porque nadie de ese departamento cumple el filtro. Son 3 grupos.`},
+{c:`Consultas: COUNT`,q:`¿Qué devuelve?`,code:`SELECT COUNT(departamento) FROM empleados;`,o:[`11`,`4`,`1`,`7`],e:`COUNT(departamento) cuenta las filas con valor, incluidos los repetidos: 11. Para contar los departamentos diferentes (4) se necesita COUNT(DISTINCT departamento).`},
+{c:`NULL`,q:`7 empleados no tienen comisión. ¿Cuántas filas devuelve esta consulta?`,code:`SELECT * FROM empleados\nWHERE comision = NULL;`,o:[`0`,`7`,`4`,`11`],e:`Comparar con = NULL nunca es verdadero, porque NULL significa “desconocido”. Devuelve 0 filas. Lo correcto es WHERE comision IS NULL, que sí trae las 7.`},
+{c:`NULL: COALESCE`,q:`Carlos Pérez gana 5.200.000 y su comisión es NULL. ¿Qué resultado da?`,code:`SELECT (salario + COALESCE(comision, 0)) * 12\nFROM empleados\nWHERE nombre = 'Carlos';`,o:[`62400000`,`NULL`,`5200000`,`0`],e:`COALESCE cambia el NULL por 0, así que la suma queda en 5.200.000 y al multiplicar por 12 da 62.400.000. Sin COALESCE el resultado sería NULL.`},
+{c:`Vistas`,q:`Creas esta vista y después insertas un empleado nuevo del departamento TI en la tabla empleados. ¿Qué pasa al consultar la vista?`,code:`CREATE VIEW vw_ti AS\nSELECT * FROM empleados\nWHERE departamento = 'TI';`,o:[`El nuevo empleado aparece, porque la vista es una consulta guardada`,`No aparece hasta que borres y vuelvas a crear la vista`,`Da error porque la vista quedó desactualizada`,`Aparece duplicado, una vez por la tabla y otra por la vista`],e:`Una vista no guarda una copia de los datos: guarda el SELECT y lo ejecuta cada vez que la consultas, así que siempre refleja el estado actual de la tabla.`},
+{c:`Llaves foráneas`,q:`En ventas, id_cliente es FOREIGN KEY hacia clientes(id_cliente), sin ON DELETE CASCADE, y el cliente 1 ya tiene una venta registrada. ¿Qué pasa con esta sentencia?`,code:`DELETE FROM clientes\nWHERE id_cliente = 1;`,o:[`Da error por la llave foránea`,`Se borra el cliente y su venta queda con id_cliente en NULL`,`Se borran el cliente y su venta automáticamente`,`Se borra el cliente sin ningún problema`],e:`La llave foránea protege la integridad referencial: no deja borrar un cliente que tiene ventas, porque la venta quedaría huérfana. Primero habría que borrar o reasignar sus ventas.`},
+{c:`DEFAULT (SQL Server)`,q:`En SQL Server, la tabla ventas tiene la columna fecha con DEFAULT GETDATE(). ¿Qué valor queda en fecha?`,code:`INSERT INTO ventas (id_cliente, id_producto)\nVALUES (2, 3);`,o:[`La fecha actual del servidor`,`NULL`,`Da error porque no se indicó la fecha`,`1900-01-01`],e:`Si no escribes la columna, se usa su valor DEFAULT: GETDATE() entrega la fecha actual. En PostgreSQL el equivalente es CURRENT_DATE.`}
+];
+
+const $=id=>document.getElementById(id);
+const TOTAL=Q.length, VAL=5/TOTAL;
+let order,idx,score,fails,locked;
+
+function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;}
+function show(id){["intro","quiz","result"].forEach(s=>$(s).hidden=s!==id);window.scrollTo(0,0);}
+
+function start(){
+  order=shuffle(Q.map((_,k)=>k));idx=0;score=0;fails=[];
+  show("quiz");render();
+}
+
+function render(){
+  const it=Q[order[idx]];
+  locked=false;
+  $("prog").textContent="Pregunta "+(idx+1)+" de "+TOTAL+" · Aciertos: "+score;
+  $("barfill").style.width=(idx/TOTAL*100)+"%";
+  $("qtag").textContent=it.c;
+  $("qtext").textContent=it.q;
+  const pre=$("qcode");
+  if(it.code){pre.textContent=it.code;pre.hidden=false;}else{pre.hidden=true;}
+  $("fb").hidden=true;$("next").hidden=true;
+  const opts=shuffle(it.o.map((t,k)=>({t:t,ok:k===0})));
+  const box=$("opts");box.textContent="";
+  opts.forEach(op=>{
+    const b=document.createElement("button");
+    b.type="button";b.className="opt";b.textContent=op.t;
+    b.addEventListener("click",()=>answer(b,op,opts,it));
+    box.appendChild(b);
+  });
+}
+
+function answer(btn,op,opts,it){
+  if(locked)return;
+  locked=true;
+  const all=[...$("opts").children];
+  all.forEach((b,k)=>{b.disabled=true;if(opts[k].ok)b.classList.add("ok");});
+  const fb=$("fb");
+  fb.hidden=false;
+  if(op.ok){
+    score++;
+    fb.className="fb ok";
+    fb.textContent="Correcto. "+it.e;
+  }else{
+    btn.classList.add("bad");
+    fb.className="fb bad";
+    fb.textContent="Incorrecto. "+it.e;
+    fails.push({it:it,chosen:op.t});
+  }
+  $("prog").textContent="Pregunta "+(idx+1)+" de "+TOTAL+" · Aciertos: "+score;
+  $("barfill").style.width=((idx+1)/TOTAL*100)+"%";
+  const nx=$("next");
+  nx.textContent=idx===TOTAL-1?"Ver mi nota":"Siguiente";
+  nx.hidden=false;nx.focus();
+}
+
+function next(){
+  if(idx===TOTAL-1){finish();return;}
+  idx++;render();
+}
+
+function finish(){
+  const nota=score*VAL;
+  const n=$("nota");
+  n.textContent=nota.toFixed(2);
+  n.className="nota "+(nota>=3?"pass":"fail");
+  $("resum").textContent="Acertaste "+score+" de "+TOTAL+" preguntas. Cada una valía "+VAL.toFixed(2)+".";
+  const rv=$("review");rv.textContent="";
+  const h=document.createElement("h2");
+  h.textContent=fails.length?"Para repasar ("+fails.length+")":"Sin errores";
+  rv.appendChild(h);
+  if(!fails.length){
+    const p=document.createElement("p");p.textContent="Respondiste todo bien. Vuelve a intentarlo: las preguntas salen en otro orden.";rv.appendChild(p);
+  }
+  fails.forEach(f=>{
+    const d=document.createElement("div");d.className="rev";
+    const q=document.createElement("div");q.textContent=f.it.q;q.style.fontWeight="600";d.appendChild(q);
+    if(f.it.code){const pr=document.createElement("pre");pr.textContent=f.it.code;d.appendChild(pr);}
+    const a=document.createElement("div");a.textContent="Tu respuesta: "+f.chosen;a.style.color="var(--bad)";d.appendChild(a);
+    const b=document.createElement("div");b.textContent="Correcta: "+f.it.o[0];b.style.color="var(--ok)";d.appendChild(b);
+    const e=document.createElement("div");e.className="muted";e.textContent=f.it.e;d.appendChild(e);
+    rv.appendChild(d);
+  });
+  show("result");
+}
+
+$("n1").textContent=TOTAL;$("n2").textContent=TOTAL;$("v1").textContent=VAL.toFixed(2);
+$("go").addEventListener("click",start);
+$("next").addEventListener("click",next);
+$("again").addEventListener("click",start);
+</script>
+</body>
+</html>
